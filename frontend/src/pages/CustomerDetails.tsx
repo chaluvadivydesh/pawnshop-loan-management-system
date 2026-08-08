@@ -231,10 +231,10 @@ export const CustomerDetails: React.FC = () => {
         try {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteLoan(loanId);
-          await loadData(false);
+          setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
+          loadData(false);
         } catch (err: any) {
           alert(err.message || 'Failed to delete loan');
-        } finally {
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
         }
       }
@@ -281,10 +281,10 @@ export const CustomerDetails: React.FC = () => {
         try {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteExtraMoney(extraMoneyId);
-          await loadData(false);
+          setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
+          loadData(false);
         } catch (err: any) {
           alert(err.message || 'Failed to delete Extra Money entry');
-        } finally {
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
         }
       }
@@ -300,10 +300,10 @@ export const CustomerDetails: React.FC = () => {
         try {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deletePayment(paymentId);
-          await loadData(false);
+          setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
+          loadData(false);
         } catch (err: any) {
           alert(err.message || 'Failed to delete payment');
-        } finally {
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
         }
       }
@@ -319,10 +319,10 @@ export const CustomerDetails: React.FC = () => {
         try {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteRenewal(renewalId);
-          await loadData(false);
+          setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
+          loadData(false);
         } catch (err: any) {
           alert(err.message || 'Failed to delete renewal');
-        } finally {
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
         }
       }
