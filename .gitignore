@@ -15,9 +15,13 @@ backend/.env
 .env
 *.env
 
-# System / IDE files
+# System / IDE files & Database artifacts
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 *.log
+*.db
+*.db-journal
+backend/prisma/*.db
+
