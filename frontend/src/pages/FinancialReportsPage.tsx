@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -44,8 +45,10 @@ export const FinancialReportsPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [startDate, setStartDate] = useState<string>(defaultStartDate);
   const [endDate, setEndDate] = useState<string>(defaultEndDate);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
+
   
-  const [reportData, setReportData] = useState<{
+  const { data: reportData = null, isLoading: loading, refetch } = useQuery<{
     dailyRows: Array<{
       date: string;
       loansGivenCount: number;
@@ -65,30 +68,18 @@ export const FinancialReportsPage: React.FC = () => {
       totalMoneyReceived: number;
       totalInterestEarned: number;
     };
-  } | null>(null);
-  
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
+  } | null>({
+    queryKey: ['financial-report', startDate, endDate],
+    queryFn: () => fetchFinancialReport(startDate, endDate),
+    enabled: isAuthorized,
+    staleTime: 1000 * 30
+  });
 
-  const loadReport = async (sDate: string, eDate: string) => {
-    if (!reportData) {
-      setLoading(true);
-    }
-    try {
-      const data = await fetchFinancialReport(sDate, eDate);
-      setReportData(data);
-    } catch (err) {
-      console.error('Error fetching financial report:', err);
-    } finally {
-      setLoading(false);
-    }
+  const loadReport = () => {
+    refetch();
   };
 
-  useEffect(() => {
-    if (isAuthorized) {
-      loadReport(startDate, endDate);
-    }
-  }, [isAuthorized, startDate, endDate]);
+
 
   // Handle Preset Filters
   const handleFilterToday = () => {
@@ -216,7 +207,7 @@ export const FinancialReportsPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => loadReport(startDate, endDate)}
+              onClick={() => loadReport()}
               className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               title="Refresh Report"
             >

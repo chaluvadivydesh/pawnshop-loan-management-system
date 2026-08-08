@@ -10,11 +10,24 @@ import { warmupDashboardCache } from './controllers/reportController';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT) || 5001;
 
 app.use(cors());
 app.use(compression());
 app.use(express.json());
+
+// Performance measurement middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (req.path.startsWith('/api')) {
+      res.setHeader('X-Response-Time', `${duration}ms`);
+      console.log(`[API Timing] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    }
+  });
+  next();
+});
 
 // API Routes
 app.use('/api', apiRouter);
@@ -23,6 +36,7 @@ app.use('/api', apiRouter);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
 
 async function fixHistoricalLoanChainStatuses() {
   try {
@@ -76,7 +90,7 @@ async function fixHistoricalLoanChainStatuses() {
   }
 }
 
-app.listen(PORT, async () => {
+app.listen(PORT, "0.0.0.0", async () => {
   try {
     await prisma.$connect();
     console.log('Database pool connected.');
