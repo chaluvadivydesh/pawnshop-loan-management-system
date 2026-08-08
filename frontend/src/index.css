@@ -1,0 +1,114 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply transition-colors duration-200;
+  }
+}
+
+/* Glassmorphism effects */
+.glass-panel {
+  @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 shadow-sm;
+}
+
+.gold-gradient-bg {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde047 50%, #eab308 100%);
+}
+
+.silver-gradient-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 50%, #94a3b8 100%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+}
+
+/* Print specific styles for reports */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #pdf-report-container,
+  #pdf-report-container *,
+  #financial-report-print-container,
+  #financial-report-print-container * {
+    visibility: visible !important;
+  }
+  #pdf-report-container,
+  #financial-report-print-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 16px !important;
+    background: white !important;
+    color: black !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .font-mono,
+  .date-cell,
+  td.date-col {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+  }
+  .calculation-card,
+  .grand-summary-box,
+  .customer-info-box,
+  .info-box,
+  .summary-container,
+  .summary-box,
+  .section-block,
+  .card-group,
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-inside: avoid-page !important;
+  }
+  .section-title,
+  .header,
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    break-after: avoid-page !important;
+  }
+  p, blockquote {
+    orphans: 3;
+    widows: 3;
+  }
+  table {
+    page-break-inside: auto !important;
+  }
+  thead {
+    display: table-header-group !important;
+  }
+  tfoot {
+    display: table-row-group !important;
+  }
+}
+
+/* Remove up/down spinner arrows from number inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}

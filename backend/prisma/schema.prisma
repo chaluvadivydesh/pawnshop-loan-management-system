@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Customer {
+  id               String   @id @default(uuid())
+  name             String
+  relationshipType String   // "S/O", "D/O", "W/O"
+  relationshipName String   // Father/Husband Name
+  village          String
+  mobile           String
+  address          String?
+  remarks          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  loans            Loan[]
+}
+
+model Loan {
+  id                 String           @id @default(uuid())
+  customerId         String
+  customer           Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  parentLoanId       String?
+  parentLoan         Loan?            @relation("LoanChain", fields: [parentLoanId], references: [id], onDelete: SetNull)
+  childLoans         Loan[]           @relation("LoanChain")
+  itemName           String
+  itemDescription    String?
+  metalType          String           // "GOLD" or "SILVER"
+  weight             Float            // in grams
+  loanDate           String           // YYYY-MM-DD
+  releaseDate        String?          // YYYY-MM-DD
+  principal          Float
+  interestRate       Float            // e.g. 2.5 for 2.5% per month
+  compoundFrequency  String           // "MONTHLY", "THREE_MONTHS", "SIX_MONTHS", "YEARLY"
+  loanPeriod         Int              // in months or period count
+  calculatedInterest Float            @default(0)
+  finalAmount        Float            @default(0)
+  amountPaid         Float            @default(0)
+  outstandingBalance Float            @default(0)
+  releaseStatus      String           @default("ACTIVE") // "ACTIVE", "RELEASED", "RENEWED", "PARTIALLY_PAID"
+  calculationDate    String?          // YYYY-MM-DD
+  remarks            String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  payments           Payment[]
+  extraMoney         ExtraMoney[]
+  renewals           LoanRenewal[]
+  partialPayments    PartialPayment[] @relation("OriginalLoanPartialPayments")
+
+  @@index([customerId])
+  @@index([parentLoanId])
+  @@index([releaseStatus])
+  @@index([loanDate])
+}
+
+model ExtraMoney {
+  id        String   @id @default(uuid())
+  loanId    String
+  loan      Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amount    Float
+  date      String   // YYYY-MM-DD
+  remarks   String?
+  createdAt DateTime @default(now())
+
+  @@index([loanId])
+  @@index([date])
+}
+
+model LoanRenewal {
+  id                  String   @id @default(uuid())
+  loanId              String
+  loan                Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  renewalDate         String   // YYYY-MM-DD
+  previousPrincipal   Float
+  accumulatedInterest Float
+  newPrincipal        Float
+  newLoanPeriod       Int      // in months
+  remarks             String?
+  createdAt           DateTime @default(now())
+
+  @@index([loanId])
+  @@index([renewalDate])
+}
+
+model PartialPayment {
+  id                  String   @id @default(uuid())
+  loanId              String
+  loan                Loan     @relation("OriginalLoanPartialPayments", fields: [loanId], references: [id], onDelete: Cascade)
+  newLoanId           String?
+  paymentDate         String   // YYYY-MM-DD
+  paymentType         String   // "PRINCIPAL_PLUS_INTEREST" or "PRINCIPAL_ONLY"
+  totalAmountPaid     Float    // Cash paid by customer
+  interestPaid        Float    // Allocated interest paid
+  principalPaid       Float    // Allocated principal paid
+  previousPrincipal   Float    // Principal before payment
+  outstandingInterest Float    // Interest accumulated before payment
+  newPrincipal        Float    // New principal for active partial loan
+  remarks             String?
+  createdAt           DateTime @default(now())
+
+  @@index([loanId])
+  @@index([newLoanId])
+  @@index([paymentDate])
+}
+
+model Payment {
+  id                  String   @id @default(uuid())
+  loanId              String
+  loan                Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  paymentDate         String   // YYYY-MM-DD
+  amountPaid          Float
+  balanceAfterPayment Float
+  paymentType         String   @default("REGULAR") // "REGULAR", "INTEREST_ONLY", "EXTRA_MONEY", "PARTIAL_PAYMENT"
+  remarks             String?
+  createdAt           DateTime @default(now())
+
+  @@index([loanId])
+  @@index([paymentDate])
+  @@index([paymentType])
+}
