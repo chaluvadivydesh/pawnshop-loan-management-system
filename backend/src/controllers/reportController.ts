@@ -153,7 +153,7 @@ export function invalidateDashboardCache() {
 export async function warmupDashboardCache() {
   try {
     const fakeReq = { query: {} } as any;
-    const fakeRes = { json: () => {} } as any;
+    const fakeRes = { status: () => fakeRes, json: () => {} } as any;
     await getDashboardStats(fakeReq, fakeRes);
     await getDueLoans(fakeReq, fakeRes);
   } catch (e) {

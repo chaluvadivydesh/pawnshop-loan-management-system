@@ -95,12 +95,12 @@ app.listen(PORT, "0.0.0.0", async () => {
     await prisma.$connect();
     console.log('Database pool connected.');
     // Run background maintenance tasks and cache warmup asynchronously without blocking server readiness
-    Promise.all([
-      autoRepairParentLoanLinks(),
-      fixHistoricalLoanChainStatuses(),
-      warmupCustomerCache(),
-      warmupDashboardCache()
-    ]).catch((err) => console.error('Error running background startup tasks:', err));
+    (async () => {
+      await autoRepairParentLoanLinks();
+      await fixHistoricalLoanChainStatuses();
+      await warmupCustomerCache();
+      await warmupDashboardCache();
+    })().catch((err) => console.error('Error running background startup tasks:', err));
   } catch (err) {
     console.error('Error connecting database:', err);
   }

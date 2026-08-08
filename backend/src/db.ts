@@ -18,9 +18,11 @@ export const prisma =
     ]
   });
 
-(prisma as any).$on('query', (e: any) => {
-  console.log(`[SQL Query] (${e.duration} ms): ${e.query}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  (prisma as any).$on('query', (e: any) => {
+    console.log(`[SQL Query] (${e.duration} ms): ${e.query}`);
+  });
+}
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;

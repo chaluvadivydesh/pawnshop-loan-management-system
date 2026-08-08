@@ -629,31 +629,30 @@ export async function deleteLoan(req: Request, res: Response) {
 
       if (parentLoan) {
         // Remove Partial Payment & Renewal records on Parent loan
-        await prisma.partialPayment.deleteMany({
-          where: {
-            OR: [
-              { loanId: parentLoan.id },
-              { newLoanId: loan.id }
-            ]
-          }
-        });
-
-        await prisma.loanRenewal.deleteMany({
-          where: { loanId: parentLoan.id }
-        });
-
-        // Remove settlement/partial payment log entries from Parent loan
-        await prisma.payment.deleteMany({
-          where: {
-            loanId: parentLoan.id,
-            paymentType: { in: ['PARTIAL_PAYMENT', 'REGULAR'] },
-            OR: [
-              { paymentType: 'PARTIAL_PAYMENT' },
-              { remarks: { contains: 'Renewal' } },
-              { remarks: { contains: 'Settled on Renewal' } }
-            ]
-          }
-        });
+        await Promise.all([
+          prisma.partialPayment.deleteMany({
+            where: {
+              OR: [
+                { loanId: parentLoan.id },
+                { newLoanId: loan.id }
+              ]
+            }
+          }),
+          prisma.loanRenewal.deleteMany({
+            where: { loanId: parentLoan.id }
+          }),
+          prisma.payment.deleteMany({
+            where: {
+              loanId: parentLoan.id,
+              paymentType: { in: ['PARTIAL_PAYMENT', 'REGULAR'] },
+              OR: [
+                { paymentType: 'PARTIAL_PAYMENT' },
+                { remarks: { contains: 'Renewal' } },
+                { remarks: { contains: 'Settled on Renewal' } }
+              ]
+            }
+          })
+        ]);
 
         // Calculate restored interest & balance for Parent loan from original loan date to today
         const parentInterestPayments = (parentLoan.payments || [])
@@ -692,18 +691,20 @@ export async function deleteLoan(req: Request, res: Response) {
     const descendantIds = await getAllDescendantLoanIds(id);
     const allIdsToDelete = [id, ...descendantIds];
 
-    // Clean up all transaction history belonging to those records
-    await prisma.payment.deleteMany({ where: { loanId: { in: allIdsToDelete } } });
-    await prisma.extraMoney.deleteMany({ where: { loanId: { in: allIdsToDelete } } });
-    await prisma.loanRenewal.deleteMany({ where: { loanId: { in: allIdsToDelete } } });
-    await prisma.partialPayment.deleteMany({
-      where: {
-        OR: [
-          { loanId: { in: allIdsToDelete } },
-          { newLoanId: { in: allIdsToDelete } }
-        ]
-      }
-    });
+    // Clean up all transaction history belonging to those records concurrently
+    await Promise.all([
+      prisma.payment.deleteMany({ where: { loanId: { in: allIdsToDelete } } }),
+      prisma.extraMoney.deleteMany({ where: { loanId: { in: allIdsToDelete } } }),
+      prisma.loanRenewal.deleteMany({ where: { loanId: { in: allIdsToDelete } } }),
+      prisma.partialPayment.deleteMany({
+        where: {
+          OR: [
+            { loanId: { in: allIdsToDelete } },
+            { newLoanId: { in: allIdsToDelete } }
+          ]
+        }
+      })
+    ]);
 
     // Delete loan records
     await prisma.loan.deleteMany({ where: { id: { in: allIdsToDelete } } });

@@ -12,13 +12,31 @@ function getIdempotencyHeaders(): Record<string, string> {
   };
 }
 
+export function invalidateLoanQueries() {
+  queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
+}
+
+export function invalidateCustomerQueries() {
+  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
+}
+
 export function invalidateAllQueries() {
-  queryClient.invalidateQueries({ queryKey: ['customers'] });
-  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-  queryClient.invalidateQueries({ queryKey: ['due-loans'] });
-  queryClient.invalidateQueries({ queryKey: ['financial-report'] });
-  queryClient.invalidateQueries({ queryKey: ['todays-analysis'] });
-  queryClient.invalidateQueries({ queryKey: ['customer-details'] });
+  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
 }
 
 
@@ -144,7 +162,7 @@ export async function createCustomer(data: Omit<Customer, 'id'>): Promise<Custom
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateCustomerQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to create customer');
@@ -158,7 +176,7 @@ export async function updateCustomer(id: string, data: Partial<Customer>): Promi
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateCustomerQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to update customer');
@@ -170,7 +188,7 @@ export async function deleteCustomer(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Failed to delete customer');
-  invalidateAllQueries();
+  invalidateCustomerQueries();
 }
 
 export async function createLoan(data: any): Promise<Loan> {
@@ -181,7 +199,7 @@ export async function createLoan(data: any): Promise<Loan> {
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to add loan item');
@@ -195,7 +213,7 @@ export async function updateLoan(id: string, data: any): Promise<Loan> {
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to update loan');
@@ -209,7 +227,7 @@ export async function releaseLoan(id: string, data: { amountPaid: number; releas
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to release loan item');
@@ -221,7 +239,7 @@ export async function deleteLoan(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Failed to delete loan item');
-  invalidateAllQueries();
+  invalidateLoanQueries();
 }
 
 export async function batchUpdateCalculations(loans: any[]): Promise<Loan[]> {
@@ -232,7 +250,7 @@ export async function batchUpdateCalculations(loans: any[]): Promise<Loan[]> {
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to save batch calculations');
@@ -246,7 +264,7 @@ export async function addExtraMoney(loanId: string, data: { amount: number; date
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to add extra money entry');
@@ -260,7 +278,7 @@ export async function addInterestPayment(loanId: string, data: { amountPaid: num
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to record interest payment');
@@ -274,7 +292,7 @@ export async function renewLoan(loanId: string, data: { renewalDate?: string; ne
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to renew loan');
@@ -288,7 +306,7 @@ export async function addPartialPayment(loanId: string, data: { paymentDate?: st
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to process partial payment');
@@ -309,7 +327,7 @@ export async function updateExtraMoney(id: string, data: { amount: number; date?
   });
   const json = await res.json();
   if (json.success) {
-    invalidateAllQueries();
+    invalidateLoanQueries();
     return json.data;
   }
   throw new Error(json.error || 'Failed to update extra money entry');
@@ -321,7 +339,7 @@ export async function deleteExtraMoney(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Failed to delete extra money entry');
-  invalidateAllQueries();
+  invalidateLoanQueries();
 }
 
 export async function deletePayment(id: string): Promise<void> {
@@ -330,7 +348,7 @@ export async function deletePayment(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Failed to delete payment entry');
-  invalidateAllQueries();
+  invalidateLoanQueries();
 }
 
 export async function deleteRenewal(id: string): Promise<void> {
@@ -339,7 +357,7 @@ export async function deleteRenewal(id: string): Promise<void> {
   });
   const json = await res.json();
   if (!json.success) throw new Error(json.error || 'Failed to delete renewal entry');
-  invalidateAllQueries();
+  invalidateLoanQueries();
 }
 
 
