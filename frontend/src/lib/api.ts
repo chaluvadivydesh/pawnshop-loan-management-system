@@ -2,7 +2,7 @@ import { Customer, Loan, DashboardStats } from '../types';
 import { cacheCustomers, getCachedCustomers, cacheLoans, getCachedLoans } from './db';
 import { queryClient } from './queryClient';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 function getIdempotencyHeaders(): Record<string, string> {
   const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
