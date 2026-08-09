@@ -14,8 +14,8 @@ function getIdempotencyHeaders(): Record<string, string> {
 
 export function invalidateLoanQueries() {
   queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
@@ -23,7 +23,7 @@ export function invalidateLoanQueries() {
 
 export function invalidateCustomerQueries() {
   queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
   queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
@@ -95,7 +95,7 @@ export async function fetchCustomers(query: string = ''): Promise<Customer[]> {
     const res = await fetch(`${API_BASE}/customers?q=${encodeURIComponent(query)}`);
     const json = await res.json();
     if (json.success) {
-      await cacheCustomers(json.data);
+      cacheCustomers(json.data).catch((err) => console.warn('Background cacheCustomers failed:', err));
       return json.data;
     }
     throw new Error(json.error || 'Failed to fetch customers');
@@ -129,7 +129,7 @@ export async function fetchCustomerDetails(id: string): Promise<Customer & { loa
     const json = await res.json();
     if (json.success) {
       if (json.data.loans) {
-        await cacheLoans(json.data.loans);
+        cacheLoans(json.data.loans).catch((err) => console.warn('Background cacheLoans failed:', err));
       }
       customerMemoryCache.set(id, json.data);
       return json.data;

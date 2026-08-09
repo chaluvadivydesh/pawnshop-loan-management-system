@@ -232,7 +232,7 @@ export const CustomerDetails: React.FC = () => {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteLoan(loanId);
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
-          loadData(false);
+          await loadData(false);
         } catch (err: any) {
           alert(err.message || 'Failed to delete loan');
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
@@ -247,10 +247,9 @@ export const CustomerDetails: React.FC = () => {
     setReleasingLoan(null);
     try {
       await releaseLoan(targetId, data);
+      await loadData(false);
     } catch (err: any) {
       alert(err.message || 'Failed to release loan');
-    } finally {
-      loadData(false);
     }
   };
 
@@ -368,10 +367,9 @@ export const CustomerDetails: React.FC = () => {
     setRenewingLoan(null);
     try {
       await renewLoan(targetId, data);
+      await loadData(false);
     } catch (err: any) {
       alert(err.message || 'Failed to renew loan');
-    } finally {
-      loadData(false);
     }
   };
 
