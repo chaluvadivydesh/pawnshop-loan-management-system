@@ -39,6 +39,7 @@ export const LoanModal: React.FC<LoanModalProps> = ({
   });
 
   const selectedMetal = watch('metalType');
+  const prevMetalRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -55,6 +56,7 @@ export const LoanModal: React.FC<LoanModalProps> = ({
       setValue('amountPaid', initialData.amountPaid || 0);
       setValue('releaseStatus', initialData.releaseStatus || 'ACTIVE');
       setValue('remarks', initialData.remarks || '');
+      prevMetalRef.current = initialData.metalType;
     } else {
       reset({
         loanDate: todayStr,
@@ -71,8 +73,25 @@ export const LoanModal: React.FC<LoanModalProps> = ({
         releaseStatus: 'ACTIVE',
         remarks: ''
       });
+      prevMetalRef.current = 'GOLD';
     }
   }, [initialData, isOpen, reset, setValue, todayStr]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      prevMetalRef.current = null;
+      return;
+    }
+
+    if (prevMetalRef.current !== null && prevMetalRef.current !== selectedMetal) {
+      if (selectedMetal === 'SILVER') {
+        setValue('interestRate', 3);
+      } else if (selectedMetal === 'GOLD') {
+        setValue('interestRate', 2);
+      }
+      prevMetalRef.current = selectedMetal;
+    }
+  }, [selectedMetal, isOpen, setValue]);
 
   if (!isOpen) return null;
 
