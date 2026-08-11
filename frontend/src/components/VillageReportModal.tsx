@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, MapPin, Search, ArrowUpDown, Users, ChevronDown, ChevronUp, User, Phone, Coins, ShieldAlert } from 'lucide-react';
 import { Customer } from '../types';
+import { prefetchCustomerDetails } from '../lib/api';
 
 interface VillageReportModalProps {
   isOpen: boolean;
@@ -195,6 +196,7 @@ export const VillageReportModal: React.FC<VillageReportModalProps> = ({
                         return (
                           <div
                             key={cust.id}
+                            onMouseEnter={() => prefetchCustomerDetails(cust.id)}
                             onClick={() => {
                               onClose();
                               navigate(`/customers/${cust.id}`);

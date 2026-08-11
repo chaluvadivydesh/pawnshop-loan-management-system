@@ -114,6 +114,7 @@ export async function fetchCustomers(query: string = ''): Promise<Customer[]> {
 }
 
 const customerMemoryCache = new Map<string, Customer & { loans: Loan[] }>();
+const inFlightPrefetchMap = new Map<string, Promise<Customer & { loans: Loan[] }>>();
 
 export function getMemoryCachedCustomer(id: string): (Customer & { loans: Loan[] }) | null {
   return customerMemoryCache.get(id) || null;
@@ -123,34 +124,63 @@ export function setMemoryCachedCustomer(id: string, data: Customer & { loans: Lo
   customerMemoryCache.set(id, data);
 }
 
+export function prefetchCustomerDetails(id: string): void {
+  if (!id) return;
+  if (customerMemoryCache.has(id)) return;
+  if (inFlightPrefetchMap.has(id)) return;
+
+  fetchCustomerDetails(id).catch((err) => {
+    console.debug('Silent prefetch skipped/failed:', err);
+  });
+}
+
 export async function fetchCustomerDetails(id: string): Promise<Customer & { loans: Loan[] }> {
-  try {
-    const res = await fetch(`${API_BASE}/customers/${id}`);
-    const json = await res.json();
-    if (json.success) {
-      if (json.data.loans) {
-        cacheLoans(json.data.loans).catch((err) => console.warn('Background cacheLoans failed:', err));
+  const cached = customerMemoryCache.get(id);
+  if (cached) {
+    return cached;
+  }
+
+  if (inFlightPrefetchMap.has(id)) {
+    return inFlightPrefetchMap.get(id)!;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/customers/${id}`);
+      const json = await res.json();
+      if (json.success) {
+        if (json.data.loans) {
+          cacheLoans(json.data.loans).catch((err) => console.warn('Background cacheLoans failed:', err));
+        }
+        customerMemoryCache.set(id, json.data);
+        return json.data;
       }
-      customerMemoryCache.set(id, json.data);
-      return json.data;
-    }
-    throw new Error(json.error || 'Failed to fetch customer details');
-  } catch (err) {
-    console.warn('Fetching customer details from IndexedDB offline storage');
-    const cachedCusts = await getCachedCustomers();
-    const cust = cachedCusts.find((c) => c.id === id);
-    const loans = await getCachedLoans(id);
+      throw new Error(json.error || 'Failed to fetch customer details');
+    } catch (err) {
+      console.warn('Fetching customer details from IndexedDB offline storage');
+      const cachedCusts = await getCachedCustomers();
+      const cust = cachedCusts.find((c) => c.id === id);
+      const loans = await getCachedLoans(id);
 
-    if (!cust) {
-      throw new Error('Customer not found in local cache');
-    }
+      if (!cust) {
+        throw new Error('Customer not found in local cache');
+      }
 
-    const result = {
-      ...cust,
-      loans
-    };
-    customerMemoryCache.set(id, result);
-    return result;
+      const result = {
+        ...cust,
+        loans
+      };
+      customerMemoryCache.set(id, result);
+      return result;
+    }
+  })();
+
+  inFlightPrefetchMap.set(id, fetchPromise);
+
+  try {
+    return await fetchPromise;
+  } finally {
+    inFlightPrefetchMap.delete(id);
   }
 }
 

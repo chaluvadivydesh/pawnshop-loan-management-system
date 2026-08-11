@@ -21,7 +21,7 @@ import {
   HandCoins
 } from 'lucide-react';
 import { Customer, DashboardStats } from '../types';
-import { fetchCustomers, fetchDashboardStats, createCustomer } from '../lib/api';
+import { fetchCustomers, fetchDashboardStats, createCustomer, prefetchCustomerDetails } from '../lib/api';
 import { StatCard } from '../components/StatCard';
 import { CardGridSkeleton, TableSkeleton } from '../components/Skeleton';
 import { CustomerModal } from '../components/CustomerModal';
@@ -222,6 +222,7 @@ export const Dashboard: React.FC = () => {
                   customers.map((cust) => (
                   <tr
                     key={cust.id}
+                    onMouseEnter={() => prefetchCustomerDetails(cust.id)}
                     onClick={() => navigate(`/customers/${cust.id}`)}
                     className="hover:bg-amber-500/5 dark:hover:bg-amber-500/10 cursor-pointer transition-colors group"
                   >

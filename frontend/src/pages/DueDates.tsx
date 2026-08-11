@@ -18,7 +18,7 @@ import {
   Coins
 } from 'lucide-react';
 import { Loan } from '../types';
-import { fetchDueLoans, releaseLoan, addInterestPayment, renewLoan } from '../lib/api';
+import { fetchDueLoans, releaseLoan, addInterestPayment, renewLoan, prefetchCustomerDetails } from '../lib/api';
 import { formatDisplayDate } from '../lib/dateUtils';
 import { PaymentModal } from '../components/PaymentModal';
 import { InterestPaymentModal } from '../components/InterestPaymentModal';
@@ -330,6 +330,7 @@ export const DueDates: React.FC = () => {
                           {/* Open Customer */}
                           {cust && (
                             <button
+                              onMouseEnter={() => prefetchCustomerDetails(cust.id)}
                               onClick={() => navigate(`/customers/${cust.id}`)}
                               className="px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-bold text-[10px] flex items-center space-x-1 cursor-pointer"
                               title="Open Customer Profile"
