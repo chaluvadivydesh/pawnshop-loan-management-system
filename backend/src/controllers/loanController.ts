@@ -1143,10 +1143,13 @@ export async function addPartialPayment(req: Request, res: Response) {
     if (paymentType === 'PRINCIPAL_PLUS_INTEREST') {
       // 1. Clear all outstanding interest first
       interestPaid = Math.min(totalPaid, outstandingInterest);
+      const unpaidInterest = Math.max(0, outstandingInterest - interestPaid);
       const remainingPayment = Math.max(0, totalPaid - interestPaid);
       // 2. Remaining amount automatically reduces principal
       principalPaid = Math.min(previousPrincipal, remainingPayment);
-      newPrincipal = Math.max(0, previousPrincipal - principalPaid);
+      const remainingPrincipal = Math.max(0, previousPrincipal - principalPaid);
+      // 3. Unpaid remaining interest is capitalized into new principal
+      newPrincipal = remainingPrincipal + unpaidInterest;
     } else {
       // PRINCIPAL_ONLY: Customer pays against principal. Unpaid interest is capitalized into new principal.
       interestPaid = 0;
