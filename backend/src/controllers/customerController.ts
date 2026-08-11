@@ -208,28 +208,118 @@ export async function getAllCustomers(req: Request, res: Response) {
 export async function getCustomerById(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const customer = await prisma.customer.findUnique({
-      where: { id },
-      include: {
-        loans: {
-          include: {
-            payments: {
-              orderBy: { createdAt: 'desc' }
-            },
-            extraMoney: {
-              orderBy: { createdAt: 'asc' }
-            },
-            renewals: {
-              orderBy: { createdAt: 'asc' }
-            },
-            partialPayments: {
-              orderBy: { createdAt: 'asc' }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
-    });
+    const customerResults: any[] = await prisma.$queryRaw`
+      SELECT 
+        c.id, c.name, c."relationshipType", c."relationshipName", c.village, c.mobile, c.address, c.remarks, 
+        to_char(c."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt",
+        to_char(c."updatedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "updatedAt",
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', l.id,
+              'customerId', l."customerId",
+              'parentLoanId', l."parentLoanId",
+              'itemName', l."itemName",
+              'itemDescription', l."itemDescription",
+              'metalType', l."metalType",
+              'weight', l.weight,
+              'loanDate', l."loanDate",
+              'releaseDate', l."releaseDate",
+              'principal', l.principal,
+              'interestRate', l."interestRate",
+              'compoundFrequency', l."compoundFrequency",
+              'loanPeriod', l."loanPeriod",
+              'calculatedInterest', l."calculatedInterest",
+              'finalAmount', l."finalAmount",
+              'amountPaid', l."amountPaid",
+              'outstandingBalance', l."outstandingBalance",
+              'releaseStatus', l."releaseStatus",
+              'calculationDate', l."calculationDate",
+              'remarks', l.remarks,
+              'createdAt', to_char(l."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+              'updatedAt', to_char(l."updatedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+              'payments', (
+                SELECT COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', p.id,
+                      'loanId', p."loanId",
+                      'paymentDate', p."paymentDate",
+                      'amountPaid', p."amountPaid",
+                      'balanceAfterPayment', p."balanceAfterPayment",
+                      'paymentType', p."paymentType",
+                      'remarks', p.remarks,
+                      'createdAt', to_char(p."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    ) ORDER BY p."createdAt" DESC
+                  ), '[]'
+                )
+                FROM "Payment" p WHERE p."loanId" = l.id
+              ),
+              'extraMoney', (
+                SELECT COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', em.id,
+                      'loanId', em."loanId",
+                      'amount', em.amount,
+                      'date', em.date,
+                      'remarks', em.remarks,
+                      'createdAt', to_char(em."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    ) ORDER BY em."createdAt" ASC
+                  ), '[]'
+                )
+                FROM "ExtraMoney" em WHERE em."loanId" = l.id
+              ),
+              'renewals', (
+                SELECT COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', r.id,
+                      'loanId', r."loanId",
+                      'renewalDate', r."renewalDate",
+                      'previousPrincipal', r."previousPrincipal",
+                      'accumulatedInterest', r."accumulatedInterest",
+                      'newPrincipal', r."newPrincipal",
+                      'newLoanPeriod', r."newLoanPeriod",
+                      'remarks', r.remarks,
+                      'createdAt', to_char(r."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    ) ORDER BY r."createdAt" ASC
+                  ), '[]'
+                )
+                FROM "LoanRenewal" r WHERE r."loanId" = l.id
+              ),
+              'partialPayments', (
+                SELECT COALESCE(
+                  json_agg(
+                    json_build_object(
+                      'id', pp.id,
+                      'loanId', pp."loanId",
+                      'newLoanId', pp."newLoanId",
+                      'paymentDate', pp."paymentDate",
+                      'paymentType', pp."paymentType",
+                      'totalAmountPaid', pp."totalAmountPaid",
+                      'interestPaid', pp."interestPaid",
+                      'principalPaid', pp."principalPaid",
+                      'previousPrincipal', pp."previousPrincipal",
+                      'outstandingInterest', pp."outstandingInterest",
+                      'newPrincipal', pp."newPrincipal",
+                      'remarks', pp.remarks,
+                      'createdAt', to_char(pp."createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    ) ORDER BY pp."createdAt" ASC
+                  ), '[]'
+                )
+                FROM "PartialPayment" pp WHERE pp."loanId" = l.id
+              )
+            ) ORDER BY l."createdAt" DESC
+          ) FILTER (WHERE l.id IS NOT NULL), '[]'
+        ) as loans
+      FROM "Customer" c
+      LEFT JOIN "Loan" l ON l."customerId" = c.id
+      WHERE c.id = ${id}
+      GROUP BY c.id
+    `;
+
+    const customer = customerResults.length > 0 ? customerResults[0] : null;
 
     if (!customer) {
       return res.status(404).json({ success: false, error: 'Customer not found' });
@@ -237,13 +327,14 @@ export async function getCustomerById(req: Request, res: Response) {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    const parentIdSet = new Set(customer.loans.map((l) => l.parentLoanId).filter(Boolean));
-    const activeLoans = customer.loans.filter((l) => l.releaseStatus === 'ACTIVE');
-    const releasedLoans = customer.loans.filter((l) => l.releaseStatus === 'RELEASED' && !parentIdSet.has(l.id));
+    const custLoans: any[] = customer.loans || [];
+    const parentIdSet = new Set(custLoans.map((l: any) => l.parentLoanId).filter(Boolean));
+    const activeLoans = custLoans.filter((l: any) => l.releaseStatus === 'ACTIVE');
+    const releasedLoans = custLoans.filter((l: any) => l.releaseStatus === 'RELEASED' && !parentIdSet.has(l.id));
 
     let totalOutstanding = 0;
 
-    const loansWithCalc = customer.loans.map((loan) => {
+    const loansWithCalc = custLoans.map((loan: any) => {
       const isRenewedParent = loan.releaseStatus === 'RENEWED';
       const latestRenewalDate = (loan.renewals && loan.renewals.length > 0)
         ? loan.renewals[loan.renewals.length - 1].renewalDate
@@ -256,8 +347,8 @@ export async function getCustomerById(req: Request, res: Response) {
         : (loan.calculationDate || loan.releaseDate || todayStr);
 
       const interestPayments = (loan.payments || [])
-        .filter((p) => p.paymentType === 'INTEREST_ONLY')
-        .map((p) => ({ amount: p.amountPaid, paymentDate: p.paymentDate, remarks: p.remarks }));
+        .filter((p: any) => p.paymentType === 'INTEREST_ONLY')
+        .map((p: any) => ({ amount: p.amountPaid, paymentDate: p.paymentDate, remarks: p.remarks }));
 
       const effectivePaid = loan.releaseStatus === 'ACTIVE' ? 0 : loan.amountPaid;
 
