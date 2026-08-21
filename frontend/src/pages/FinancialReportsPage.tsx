@@ -16,7 +16,9 @@ import {
   ArrowUpRight,
   ChevronRight,
   ArrowLeft,
-  LayoutDashboard
+  LayoutDashboard,
+  MoreVertical,
+  BarChart3
 } from 'lucide-react';
 import { fetchFinancialReport } from '../lib/api';
 import { formatDisplayDate } from '../lib/dateUtils';
@@ -28,6 +30,7 @@ export const FinancialReportsPage: React.FC = () => {
   const navigate = useNavigate();
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(true);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -188,10 +191,41 @@ export const FinancialReportsPage: React.FC = () => {
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-              <FileText className="w-8 h-8 text-amber-500" />
-              <span>Financial Performance Reports</span>
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                <FileText className="w-8 h-8 text-amber-500" />
+                <span>Financial Performance Reports</span>
+              </h1>
+
+              {/* Three-Dot Menu (⋮) */}
+              <div className="relative inline-block text-left">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="More Financial Report Options"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+
+                {isMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)} />
+                    <div className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-64 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden py-1">
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          navigate('/loan-amount-analysis');
+                        }}
+                        className="w-full px-4 py-3 text-left text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-amber-500 hover:text-slate-950 flex items-center space-x-2 transition-colors cursor-pointer"
+                      >
+                        <BarChart3 className="w-4 h-4 text-amber-500" />
+                        <span>Loan Amount Range Analysis</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
               Day-by-Day Financial Breakdown & Business Period Analysis
             </p>

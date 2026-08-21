@@ -542,3 +542,10 @@ export async function fetchTodaysAnalysis(startDate?: string, endDate?: string):
   if (json.success) return json.data;
   throw new Error(json.error || 'Failed to fetch Today\'s Analysis');
 }
+
+export async function fetchPortfolioLoans(): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/reports/portfolio-loans`);
+  const json = await res.json();
+  if (json.success) return json.data || [];
+  throw new Error(json.error || 'Failed to fetch portfolio loans');
+}

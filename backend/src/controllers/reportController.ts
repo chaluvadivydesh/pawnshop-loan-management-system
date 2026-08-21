@@ -741,3 +741,66 @@ export async function getTodaysAnalysis(req: Request, res: Response) {
     res.status(500).json({ success: false, error: error.message });
   }
 }
+
+export async function getPortfolioLoans(req: Request, res: Response) {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const activeLoansRaw: any[] = await prisma.$queryRaw`
+      SELECT 
+        l.id, l."customerId", l."parentLoanId", l."itemName", l."itemDescription", l."metalType", l.weight, l."loanDate", l."releaseDate", l.principal, l."interestRate", l."compoundFrequency", l."loanPeriod", l."calculatedInterest", l."finalAmount", l."amountPaid", l."outstandingBalance", l."releaseStatus", l."calculationDate", l.remarks, l."createdAt", l."updatedAt",
+        json_build_object(
+          'id', c.id,
+          'name', c.name,
+          'relationshipType', c."relationshipType",
+          'relationshipName', c."relationshipName",
+          'village', c.village,
+          'mobile', c.mobile,
+          'address', c.address,
+          'remarks', c.remarks
+        ) as customer,
+        COALESCE(
+          (SELECT json_agg(json_build_object('amount', em.amount, 'date', em.date, 'remarks', em.remarks)) FROM "ExtraMoney" em WHERE em."loanId" = l.id), '[]'
+        ) as "extraMoney",
+        COALESCE(
+          (SELECT json_agg(json_build_object('amountPaid', p."amountPaid", 'paymentDate', p."paymentDate", 'paymentType', p."paymentType", 'remarks', p.remarks)) FROM "Payment" p WHERE p."loanId" = l.id AND p."paymentType" = 'INTEREST_ONLY'), '[]'
+        ) as "payments",
+        COALESCE(
+          (SELECT json_agg(json_build_object('renewalDate', r."renewalDate", 'accumulatedInterest', r."accumulatedInterest")) FROM "LoanRenewal" r WHERE r."loanId" = l.id), '[]'
+        ) as "renewals"
+      FROM "Loan" l
+      JOIN "Customer" c ON c.id = l."customerId"
+      WHERE l."releaseStatus" = 'ACTIVE'
+    `;
+
+    const portfolioLoans = activeLoansRaw.map((loan: any) => {
+      const interestPayments = (loan.payments || [])
+        .filter((p: any) => p.paymentType === 'INTEREST_ONLY')
+        .map((p: any) => ({ amount: p.amountPaid, paymentDate: p.paymentDate, remarks: p.remarks }));
+
+      const calc = calculateCompoundInterest({
+        principal: loan.principal,
+        interestRate: loan.interestRate,
+        compoundFrequency: loan.compoundFrequency,
+        loanDate: loan.loanDate,
+        calculationDate: todayStr,
+        amountPaid: loan.amountPaid || 0,
+        extraMoneyEntries: loan.extraMoney || [],
+        interestPaymentEntries: interestPayments,
+        renewalEntries: loan.renewals || []
+      });
+
+      return {
+        ...loan,
+        principal: calc.principal,
+        weight: Number(loan.weight) || 0,
+        calculatedInterest: calc.interestEarned,
+        finalAmount: calc.finalAmount,
+        outstandingBalance: calc.outstandingBalance
+      };
+    });
+
+    return res.json({ success: true, data: portfolioLoans });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}

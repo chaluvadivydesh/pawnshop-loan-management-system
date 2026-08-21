@@ -96,6 +96,9 @@ export async function getAllCustomers(req: Request, res: Response) {
           json_agg(
             json_build_object(
               'id', l.id,
+              'itemName', l."itemName",
+              'metalType', l."metalType",
+              'weight', l.weight,
               'principal', l.principal,
               'interestRate', l."interestRate",
               'compoundFrequency', l."compoundFrequency",

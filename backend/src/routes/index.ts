@@ -23,7 +23,7 @@ import {
   deleteRenewal
 } from '../controllers/loanController';
 import { addPayment, getPaymentHistory } from '../controllers/paymentController';
-import { getDashboardStats, getDueLoans, getFinancialReport, getTodaysAnalysis } from '../controllers/reportController';
+import { getDashboardStats, getDueLoans, getFinancialReport, getTodaysAnalysis, getPortfolioLoans } from '../controllers/reportController';
 import { calculateCompoundInterest } from '../services/calculatorService';
 
 const router = Router();
@@ -66,10 +66,11 @@ router.post('/loans/calculate', (req, res) => {
 router.post('/loans/:loanId/payments', addPayment);
 router.get('/loans/:loanId/payments', getPaymentHistory);
 
-// Reports & Dashboard & Due Dates
+// Reports & Dashboard & Due Dates & Portfolio Analysis
 router.get('/reports/dashboard', getDashboardStats);
 router.get('/reports/due-loans', getDueLoans);
 router.get('/reports/financial', getFinancialReport);
 router.get('/reports/todays-analysis', getTodaysAnalysis);
+router.get('/reports/portfolio-loans', getPortfolioLoans);
 
 export default router;

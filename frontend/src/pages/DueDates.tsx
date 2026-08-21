@@ -15,7 +15,8 @@ import {
   Filter,
   Phone,
   MapPin,
-  Coins
+  Coins,
+  BellRing
 } from 'lucide-react';
 import { Loan } from '../types';
 import { fetchDueLoans, releaseLoan, addInterestPayment, renewLoan, prefetchCustomerDetails } from '../lib/api';
@@ -29,7 +30,7 @@ import { useDebounce } from '../hooks/useDebounce';
 export const DueDates: React.FC = () => {
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'overdue' | 'today'>('overdue');
+  const [activeTab, setActiveTab] = useState<'overdue' | 'today' | '7days'>('overdue');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const debouncedSearch = useDebounce(searchQuery, 250);
   const [metalFilter, setMetalFilter] = useState<'ALL' | 'GOLD' | 'SILVER'>('ALL');
@@ -45,8 +46,23 @@ export const DueDates: React.FC = () => {
     staleTime: 1000 * 30
   });
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const in7DaysDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  })();
+
   const overdueLoans = data?.overdueLoans || [];
   const dueTodayLoans = data?.dueTodayLoans || [];
+
+  // Loans due within next 7 days for 1-week advance WhatsApp alerts
+  const dueIn7DaysLoans = useMemo(() => {
+    return overdueLoans.filter((loan: any) => {
+      if (!loan.dueDate) return false;
+      return loan.dueDate > todayStr && loan.dueDate <= in7DaysDate;
+    });
+  }, [overdueLoans, todayStr, in7DaysDate]);
 
   const loadData = () => {
     refetch();
@@ -91,7 +107,7 @@ export const DueDates: React.FC = () => {
     }
   };
 
-  const rawList = activeTab === 'overdue' ? overdueLoans : dueTodayLoans;
+  const rawList = activeTab === 'overdue' ? overdueLoans : activeTab === 'today' ? dueTodayLoans : dueIn7DaysLoans;
 
   const filteredLoans = useMemo(() => {
     const q = debouncedSearch.toLowerCase().trim();
@@ -118,7 +134,7 @@ export const DueDates: React.FC = () => {
             <span>Due Date Management</span>
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Track overdue loans, loans due today, and take quick finance actions
+            Track overdue loans, loans due today, 1-week alerts, and send WhatsApp reminders
           </p>
         </div>
 
@@ -132,17 +148,17 @@ export const DueDates: React.FC = () => {
       </div>
 
       {/* Tabs Bar */}
-      <div className="flex items-center space-x-3 border-b border-slate-200 dark:border-slate-800 pb-1">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
         <button
           onClick={() => setActiveTab('overdue')}
-          className={`px-5 py-3 rounded-2xl font-black text-sm flex items-center space-x-2 transition-all cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center space-x-2 transition-all cursor-pointer ${
             activeTab === 'overdue'
               ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/25'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <AlertTriangle className="w-4 h-4" />
-          <span>All Overdue Loans</span>
+          <span>Overdue Loans</span>
           <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
             {overdueLoans.length}
           </span>
@@ -150,7 +166,7 @@ export const DueDates: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('today')}
-          className={`px-5 py-3 rounded-2xl font-black text-sm flex items-center space-x-2 transition-all cursor-pointer ${
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center space-x-2 transition-all cursor-pointer ${
             activeTab === 'today'
               ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -160,6 +176,21 @@ export const DueDates: React.FC = () => {
           <span>Due Today</span>
           <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-950/20 text-slate-950 dark:text-white">
             {dueTodayLoans.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('7days')}
+          className={`px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm flex items-center space-x-2 transition-all cursor-pointer ${
+            activeTab === '7days'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BellRing className="w-4 h-4" />
+          <span>Due in 7 Days (1-Week Alert)</span>
+          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white">
+            {dueIn7DaysLoans.length}
           </span>
         </button>
       </div>

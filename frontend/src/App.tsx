@@ -10,6 +10,7 @@ const DueDates = lazy(() => import('./pages/DueDates').then(m => ({ default: m.D
 const FinancialReportsPage = lazy(() => import('./pages/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
 const VillageReportPage = lazy(() => import('./pages/VillageReportPage').then(m => ({ default: m.VillageReportPage })));
 const TodaysAnalysisPage = lazy(() => import('./pages/TodaysAnalysisPage').then(m => ({ default: m.TodaysAnalysisPage })));
+const LoanAmountAnalysisPage = lazy(() => import('./pages/LoanAmountAnalysisPage').then(m => ({ default: m.LoanAmountAnalysisPage })));
 
 const PageLoader: React.FC = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
               <Route path="/village-report" element={<VillageReportPage />} />
               <Route path="/financial-reports" element={<FinancialReportsPage />} />
               <Route path="/todays-analysis" element={<TodaysAnalysisPage />} />
+              <Route path="/loan-amount-analysis" element={<LoanAmountAnalysisPage />} />
             </Routes>
           </Suspense>
         </main>

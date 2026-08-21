@@ -52,7 +52,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { CustomerDetailsSkeleton } from '../components/Skeleton';
 import { formatDisplayDate } from '../lib/dateUtils';
 import { calculateCompoundInterest } from '../lib/calculator';
-import { printCustomerRecord } from '../lib/pdf';
+import { printCustomerRecord, exportCustomerPDFReport } from '../lib/pdf';
 
 const processCustomerData = (data: (Customer & { loans: Loan[] }) | null) => {
   if (!data) return null;

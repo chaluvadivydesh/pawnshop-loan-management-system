@@ -28,13 +28,180 @@ export async function generatePDFReport(containerId: string, filename: string = 
     await html2pdf().set(opt).from(element).save();
   } catch (err) {
     console.error('Error generating PDF:', err);
-    // Fallback to window print
     window.print();
   }
 }
 
 export function formatPDFDate(dateStr?: string | null): string {
   return formatDisplayDate(dateStr);
+}
+
+/**
+ * Generate and download a real .pdf file directly to the Downloads folder for a customer statement
+ */
+export async function exportCustomerPDFReport(customer: any) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const loans = customer.loans || [];
+  const activeLoans = loans.filter((l: any) => l.releaseStatus === 'ACTIVE');
+
+  // Calculate Grand Summary for Active Loans ONLY
+  const grandTotalPrincipal = activeLoans.reduce((sum: number, l: any) => {
+    const extraP = (l.extraMoney || []).reduce((s: number, em: any) => s + (em.amount || 0), 0);
+    return sum + l.principal + extraP;
+  }, 0);
+
+  const grandTotalInterest = activeLoans.reduce((sum: number, l: any) => {
+    const interestPayments = (l.payments || [])
+      .filter((p: any) => p.paymentType === 'INTEREST_ONLY')
+      .map((p: any) => ({ amount: p.amountPaid, paymentDate: p.paymentDate, remarks: p.remarks }));
+
+    const calc = calculateCompoundInterest({
+      principal: l.principal,
+      interestRate: l.interestRate,
+      compoundFrequency: l.compoundFrequency,
+      loanDate: l.loanDate,
+      calculationDate: todayStr,
+      amountPaid: 0,
+      extraMoneyEntries: l.extraMoney || [],
+      interestPaymentEntries: interestPayments,
+      renewalEntries: l.renewals || []
+    });
+
+    return sum + calc.interestEarned;
+  }, 0);
+
+  const grandTotalAmountToBePaid = grandTotalPrincipal + grandTotalInterest;
+
+  const container = document.createElement('div');
+  container.style.padding = '12px';
+  container.style.background = '#ffffff';
+  container.style.color = '#0f172a';
+  container.style.fontFamily = "'Inter', Arial, sans-serif";
+  container.style.fontSize = '12px';
+
+  container.innerHTML = `
+    <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 16px;">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">LOAN MANAGEMENT SYSTEM</h1>
+      <p style="margin: 4px 0 0 0; color: #64748b; font-size: 11px; font-weight: 600;">Customer Statement Record • Generated on ${formatPDFDate(todayStr)}</p>
+    </div>
+
+    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div>
+        <div style="font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase;">Customer Name</div>
+        <div style="font-size: 14px; font-weight: 800; color: #0f172a;">${customer.name}</div>
+      </div>
+      <div>
+        <div style="font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase;">Relationship (${customer.relationshipType || 'S/O'})</div>
+        <div style="font-size: 14px; font-weight: 800; color: #0f172a;">${customer.relationshipName || 'N/A'}</div>
+      </div>
+      <div>
+        <div style="font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase;">Village / Location</div>
+        <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${customer.village || 'N/A'}</div>
+      </div>
+      <div>
+        <div style="font-weight: 700; color: #475569; font-size: 10px; text-transform: uppercase;">Mobile Number</div>
+        <div style="font-size: 13px; font-weight: 800; color: #0f172a;">${customer.mobile || 'N/A'}</div>
+      </div>
+    </div>
+
+    <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 10px;">
+      Pledged Loan Items Summary
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px;">
+      <thead>
+        <tr style="background: #f1f5f9;">
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: left;">Loan Date</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: left;">Item Name</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: center;">Metal</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: right;">Weight</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: right;">Principal (₹)</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: right;">Interest (₹)</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: right;">Total Outstanding (₹)</th>
+          <th style="padding: 6px; border: 1px solid #94a3b8; text-align: center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${loans.map((l: any) => {
+          const interestPayments = (l.payments || [])
+            .filter((p: any) => p.paymentType === 'INTEREST_ONLY')
+            .map((p: any) => ({ amount: p.amountPaid, paymentDate: p.paymentDate, remarks: p.remarks }));
+
+          const liveCalc = calculateCompoundInterest({
+            principal: l.principal,
+            interestRate: l.interestRate,
+            compoundFrequency: l.compoundFrequency,
+            loanDate: l.loanDate,
+            calculationDate: l.releaseStatus === 'ACTIVE' ? todayStr : (l.calculationDate || l.releaseDate || todayStr),
+            amountPaid: 0,
+            extraMoneyEntries: l.extraMoney || [],
+            interestPaymentEntries: interestPayments,
+            renewalEntries: l.renewals || []
+          });
+
+          const isReleased = l.releaseStatus === 'RELEASED';
+          const totalP = liveCalc.principal;
+          const interestEarned = liveCalc.interestEarned;
+          const totalAmountVal = isReleased ? (l.amountPaid || totalP) : liveCalc.outstandingBalance;
+
+          return `
+            <tr>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; font-family: monospace;">${formatPDFDate(l.loanDate)}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1;"><strong>${l.itemName}</strong></td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center;">${l.metalType}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">${Number(l.weight || 0).toFixed(3)} g</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace;">₹ ${totalP.toLocaleString('en-IN')}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; color: #b45309;">₹ ${interestEarned.toLocaleString('en-IN')}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: right; font-family: monospace; font-weight: 800;">₹ ${totalAmountVal.toLocaleString('en-IN')}</td>
+              <td style="padding: 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800; color: ${isReleased ? '#15803d' : '#1d4ed8'};">
+                ${l.releaseStatus}
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <div style="background: #0f172a; border-radius: 10px; padding: 14px; color: #fff; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+      <div style="background: #1e293b; padding: 10px; border-radius: 6px;">
+        <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Active Principal</div>
+        <div style="font-size: 16px; font-weight: 900; color: #ffffff;">₹ ${grandTotalPrincipal.toLocaleString('en-IN')}</div>
+      </div>
+
+      <div style="background: #1e293b; padding: 10px; border-radius: 6px;">
+        <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Active Interest</div>
+        <div style="font-size: 16px; font-weight: 900; color: #f59e0b;">₹ ${grandTotalInterest.toLocaleString('en-IN')}</div>
+      </div>
+
+      <div style="background: #1e293b; padding: 10px; border-radius: 6px;">
+        <div style="font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Total Outstanding</div>
+        <div style="font-size: 16px; font-weight: 900; color: #10b981;">₹ ${grandTotalAmountToBePaid.toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  const cleanName = (customer.name || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Customer_Record_${cleanName}.pdf`;
+
+  const opt = {
+    margin: [6, 6, 6, 6],
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    const html2pdfModule = await import('html2pdf.js');
+    const html2pdf = html2pdfModule.default || html2pdfModule;
+    await html2pdf().set(opt).from(container).save();
+  } catch (err) {
+    console.error('Error generating PDF:', err);
+  } finally {
+    document.body.removeChild(container);
+  }
 }
 
 export function printCustomerRecord(customer: any) {
