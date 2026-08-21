@@ -44,6 +44,7 @@ export async function initOfflineDB() {
 }
 
 export async function cacheCustomers(customers: Customer[]) {
+  console.time('INDEXEDDB_UPDATE');
   try {
     const db = await initOfflineDB();
     const tx = db.transaction('customers', 'readwrite');
@@ -51,6 +52,29 @@ export async function cacheCustomers(customers: Customer[]) {
     await tx.done;
   } catch (err) {
     console.warn('IndexedDB cache customer failed:', err);
+  } finally {
+    console.timeEnd('INDEXEDDB_UPDATE');
+  }
+}
+
+export async function syncCachedCustomers(customers: Customer[]) {
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction('customers', 'readwrite');
+    await tx.store.clear();
+    await Promise.all(customers.map((c) => tx.store.put(c)));
+    await tx.done;
+  } catch (err) {
+    console.warn('IndexedDB sync customer failed:', err);
+  }
+}
+
+export async function deleteCachedCustomer(id: string) {
+  try {
+    const db = await initOfflineDB();
+    await db.delete('customers', id);
+  } catch (err) {
+    console.warn('IndexedDB delete customer failed:', err);
   }
 }
 
@@ -65,6 +89,7 @@ export async function getCachedCustomers(): Promise<Customer[]> {
 }
 
 export async function cacheLoans(loans: Loan[]) {
+  console.time('INDEXEDDB_UPDATE');
   try {
     const db = await initOfflineDB();
     const tx = db.transaction('loans', 'readwrite');
@@ -72,6 +97,8 @@ export async function cacheLoans(loans: Loan[]) {
     await tx.done;
   } catch (err) {
     console.warn('IndexedDB cache loan failed:', err);
+  } finally {
+    console.timeEnd('INDEXEDDB_UPDATE');
   }
 }
 

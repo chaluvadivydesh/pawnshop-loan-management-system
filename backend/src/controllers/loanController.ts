@@ -27,6 +27,17 @@ export async function addLoan(req: Request, res: Response) {
       });
     }
 
+    const customerExists = await prisma.customer.findUnique({
+      where: { id: customerId }
+    });
+
+    if (!customerExists) {
+      return res.status(404).json({
+        success: false,
+        error: `Customer with ID "${customerId}" was not found in the database. Please refresh the customer list.`
+      });
+    }
+
     const todayStr = new Date().toISOString().split('T')[0];
     const calc = calculateCompoundInterest({
       principal: Number(principal),
@@ -69,6 +80,12 @@ export async function addLoan(req: Request, res: Response) {
     invalidateDashboardCache();
     res.status(201).json({ success: true, data: loan });
   } catch (error: any) {
+    if (error.code === 'P2003') {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid customer ID. The referenced customer record does not exist in the database.'
+      });
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 }

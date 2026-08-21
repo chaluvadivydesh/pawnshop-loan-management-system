@@ -157,11 +157,11 @@ export const CustomerDetails: React.FC = () => {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const loadData = async (showLoading: boolean = false) => {
+  const loadData = async (showLoading: boolean = false, forceRefresh: boolean = false) => {
     if (!id) return;
     if (showLoading && !customer) setLoading(true);
     try {
-      const data = await fetchCustomerDetails(id);
+      const data = await fetchCustomerDetails(id, forceRefresh);
       const processed = processCustomerData(data);
       if (processed) {
         setMemoryCachedCustomer(id, processed);
@@ -175,6 +175,7 @@ export const CustomerDetails: React.FC = () => {
       });
     } catch (err) {
       console.error('Error loading customer profile:', err);
+      setCustomer(null);
     } finally {
       setLoading(false);
     }
@@ -232,7 +233,9 @@ export const CustomerDetails: React.FC = () => {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteLoan(loanId);
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
-          await loadData(false);
+          console.time('DELETE_STATE_UPDATE');
+          await loadData(false, true);
+          console.timeEnd('DELETE_STATE_UPDATE');
         } catch (err: any) {
           alert(err.message || 'Failed to delete loan');
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
@@ -247,7 +250,9 @@ export const CustomerDetails: React.FC = () => {
     setReleasingLoan(null);
     try {
       await releaseLoan(targetId, data);
-      await loadData(false);
+      console.time('RELEASE_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('RELEASE_STATE_UPDATE');
     } catch (err: any) {
       alert(err.message || 'Failed to release loan');
     }
@@ -267,7 +272,9 @@ export const CustomerDetails: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Failed to save Extra Money');
     } finally {
-      loadData(false);
+      console.time('EXTRA_MONEY_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('EXTRA_MONEY_STATE_UPDATE');
     }
   };
 
@@ -281,7 +288,9 @@ export const CustomerDetails: React.FC = () => {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteExtraMoney(extraMoneyId);
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
-          loadData(false);
+          console.time('EXTRA_MONEY_STATE_UPDATE');
+          await loadData(false, true);
+          console.timeEnd('EXTRA_MONEY_STATE_UPDATE');
         } catch (err: any) {
           alert(err.message || 'Failed to delete Extra Money entry');
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
@@ -300,7 +309,7 @@ export const CustomerDetails: React.FC = () => {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deletePayment(paymentId);
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
-          loadData(false);
+          await loadData(false, true);
         } catch (err: any) {
           alert(err.message || 'Failed to delete payment');
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
@@ -319,7 +328,7 @@ export const CustomerDetails: React.FC = () => {
           setDeleteConfirmState((prev) => ({ ...prev, isDeleting: true }));
           await deleteRenewal(renewalId);
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
-          loadData(false);
+          await loadData(false, true);
         } catch (err: any) {
           alert(err.message || 'Failed to delete renewal');
           setDeleteConfirmState({ isOpen: false, onConfirm: async () => {} });
@@ -357,7 +366,9 @@ export const CustomerDetails: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Failed to add interest payment');
     } finally {
-      loadData(false);
+      console.time('INTEREST_PAYMENT_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('INTEREST_PAYMENT_STATE_UPDATE');
     }
   };
 
@@ -367,7 +378,9 @@ export const CustomerDetails: React.FC = () => {
     setRenewingLoan(null);
     try {
       await renewLoan(targetId, data);
-      await loadData(false);
+      console.time('RENEW_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('RENEW_STATE_UPDATE');
     } catch (err: any) {
       alert(err.message || 'Failed to renew loan');
     }
@@ -382,7 +395,9 @@ export const CustomerDetails: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Failed to add partial payment');
     } finally {
-      loadData(false);
+      console.time('PARTIAL_PAYMENT_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('PARTIAL_PAYMENT_STATE_UPDATE');
     }
   };
 
@@ -400,7 +415,9 @@ export const CustomerDetails: React.FC = () => {
     } catch (err: any) {
       alert(err.message || 'Failed to save loan');
     } finally {
-      loadData(false);
+      console.time('CREATE_LOAN_STATE_UPDATE');
+      await loadData(false, true);
+      console.timeEnd('CREATE_LOAN_STATE_UPDATE');
     }
   };
 

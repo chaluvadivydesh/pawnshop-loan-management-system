@@ -1,5 +1,5 @@
 import { Customer, Loan, DashboardStats } from '../types';
-import { cacheCustomers, getCachedCustomers, cacheLoans, getCachedLoans } from './db';
+import { cacheCustomers, syncCachedCustomers, deleteCachedCustomer, getCachedCustomers, cacheLoans, getCachedLoans } from './db';
 import { queryClient } from './queryClient';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -12,31 +12,50 @@ function getIdempotencyHeaders(): Record<string, string> {
   };
 }
 
-export function invalidateLoanQueries() {
+export function clearMemoryCache(id?: string): void {
+  console.time('MEMORY_CACHE_UPDATE');
+  if (id) {
+    customerMemoryCache.delete(id);
+  } else {
+    customerMemoryCache.clear();
+  }
+  console.timeEnd('MEMORY_CACHE_UPDATE');
+}
+
+export function invalidateLoanQueries(customerId?: string) {
+  console.time('CUSTOMER_CACHE_UPDATE');
+  clearMemoryCache(customerId);
   queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
-}
-
-export function invalidateCustomerQueries() {
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
   queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'active' });
+  console.timeEnd('CUSTOMER_CACHE_UPDATE');
 }
 
-export function invalidateAllQueries() {
+export function invalidateCustomerQueries(customerId?: string) {
+  console.time('CUSTOMER_CACHE_UPDATE');
+  clearMemoryCache(customerId);
   queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
   queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
   queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
-  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'none' });
-  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'none' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'active' });
+  console.timeEnd('CUSTOMER_CACHE_UPDATE');
+}
+
+export function invalidateAllQueries() {
+  console.time('CUSTOMER_CACHE_UPDATE');
+  clearMemoryCache();
+  queryClient.invalidateQueries({ queryKey: ['customers'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['customer-details'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['due-loans'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['financial-report'], refetchType: 'active' });
+  queryClient.invalidateQueries({ queryKey: ['todays-analysis'], refetchType: 'active' });
+  console.timeEnd('CUSTOMER_CACHE_UPDATE');
 }
 
 
@@ -95,7 +114,11 @@ export async function fetchCustomers(query: string = ''): Promise<Customer[]> {
     const res = await fetch(`${API_BASE}/customers?q=${encodeURIComponent(query)}`);
     const json = await res.json();
     if (json.success) {
-      cacheCustomers(json.data).catch((err) => console.warn('Background cacheCustomers failed:', err));
+      if (!query) {
+        syncCachedCustomers(json.data).catch((err) => console.warn('Background syncCachedCustomers failed:', err));
+      } else {
+        cacheCustomers(json.data).catch((err) => console.warn('Background cacheCustomers failed:', err));
+      }
       return json.data;
     }
     throw new Error(json.error || 'Failed to fetch customers');
@@ -134,13 +157,20 @@ export function prefetchCustomerDetails(id: string): void {
   });
 }
 
-export async function fetchCustomerDetails(id: string): Promise<Customer & { loans: Loan[] }> {
-  const cached = customerMemoryCache.get(id);
-  if (cached) {
-    return cached;
+export async function fetchCustomerDetails(id: string, forceRefresh: boolean = false): Promise<Customer & { loans: Loan[] }> {
+  console.time('CUSTOMER_REFRESH');
+  if (forceRefresh) {
+    clearMemoryCache(id);
+  } else {
+    const cached = customerMemoryCache.get(id);
+    if (cached) {
+      console.timeEnd('CUSTOMER_REFRESH');
+      return cached;
+    }
   }
 
   if (inFlightPrefetchMap.has(id)) {
+    console.timeEnd('CUSTOMER_REFRESH');
     return inFlightPrefetchMap.get(id)!;
   }
 
@@ -153,16 +183,27 @@ export async function fetchCustomerDetails(id: string): Promise<Customer & { loa
           cacheLoans(json.data.loans).catch((err) => console.warn('Background cacheLoans failed:', err));
         }
         customerMemoryCache.set(id, json.data);
+        console.timeEnd('CUSTOMER_REFRESH');
         return json.data;
       }
-      throw new Error(json.error || 'Failed to fetch customer details');
-    } catch (err) {
+      clearMemoryCache(id);
+      deleteCachedCustomer(id).catch(() => {});
+      console.timeEnd('CUSTOMER_REFRESH');
+      throw new Error(json.error || 'Customer not found in database');
+    } catch (err: any) {
+      if (err.message && err.message.includes('not found')) {
+        clearMemoryCache(id);
+        deleteCachedCustomer(id).catch(() => {});
+        console.timeEnd('CUSTOMER_REFRESH');
+        throw err;
+      }
       console.warn('Fetching customer details from IndexedDB offline storage');
       const cachedCusts = await getCachedCustomers();
       const cust = cachedCusts.find((c) => c.id === id);
       const loans = await getCachedLoans(id);
 
       if (!cust) {
+        console.timeEnd('CUSTOMER_REFRESH');
         throw new Error('Customer not found in local cache');
       }
 
@@ -171,6 +212,7 @@ export async function fetchCustomerDetails(id: string): Promise<Customer & { loa
         loans
       };
       customerMemoryCache.set(id, result);
+      console.timeEnd('CUSTOMER_REFRESH');
       return result;
     }
   })();
@@ -222,17 +264,27 @@ export async function deleteCustomer(id: string): Promise<void> {
 }
 
 export async function createLoan(data: any): Promise<Loan> {
-  const res = await fetch(`${API_BASE}/loans`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('CREATE_LOAN_TOTAL');
+  console.time('CREATE_LOAN_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('CREATE_LOAN_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries(data?.customerId);
+      console.timeEnd('CREATE_LOAN_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to add loan item');
+  } catch (err) {
+    try { console.timeEnd('CREATE_LOAN_API'); } catch {}
+    try { console.timeEnd('CREATE_LOAN_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to add loan item');
 }
 
 export async function updateLoan(id: string, data: any): Promise<Loan> {
@@ -243,33 +295,53 @@ export async function updateLoan(id: string, data: any): Promise<Loan> {
   });
   const json = await res.json();
   if (json.success) {
-    invalidateLoanQueries();
+    invalidateLoanQueries(data?.customerId);
     return json.data;
   }
   throw new Error(json.error || 'Failed to update loan');
 }
 
 export async function releaseLoan(id: string, data: { amountPaid: number; releaseDate?: string; remarks?: string }): Promise<Loan> {
-  const res = await fetch(`${API_BASE}/loans/${id}/release`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('RELEASE_TOTAL');
+  console.time('RELEASE_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${id}/release`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('RELEASE_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries();
+      console.timeEnd('RELEASE_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to release loan item');
+  } catch (err) {
+    try { console.timeEnd('RELEASE_API'); } catch {}
+    try { console.timeEnd('RELEASE_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to release loan item');
 }
 
 export async function deleteLoan(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/loans/${id}`, {
-    method: 'DELETE'
-  });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.error || 'Failed to delete loan item');
-  invalidateLoanQueries();
+  console.time('DELETE_TOTAL');
+  console.time('DELETE_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${id}`, {
+      method: 'DELETE'
+    });
+    console.timeEnd('DELETE_API');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to delete loan item');
+    invalidateLoanQueries();
+    console.timeEnd('DELETE_TOTAL');
+  } catch (err) {
+    try { console.timeEnd('DELETE_API'); } catch {}
+    try { console.timeEnd('DELETE_TOTAL'); } catch {}
+    throw err;
+  }
 }
 
 export async function batchUpdateCalculations(loans: any[]): Promise<Loan[]> {
@@ -287,59 +359,99 @@ export async function batchUpdateCalculations(loans: any[]): Promise<Loan[]> {
 }
 
 export async function addExtraMoney(loanId: string, data: { amount: number; date?: string; remarks?: string }): Promise<any> {
-  const res = await fetch(`${API_BASE}/loans/${loanId}/extra-money`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('EXTRA_MONEY_TOTAL');
+  console.time('EXTRA_MONEY_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${loanId}/extra-money`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('EXTRA_MONEY_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries();
+      console.timeEnd('EXTRA_MONEY_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to add extra money entry');
+  } catch (err) {
+    try { console.timeEnd('EXTRA_MONEY_API'); } catch {}
+    try { console.timeEnd('EXTRA_MONEY_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to add extra money entry');
 }
 
 export async function addInterestPayment(loanId: string, data: { amountPaid: number; paymentDate?: string; remarks?: string }): Promise<any> {
-  const res = await fetch(`${API_BASE}/loans/${loanId}/interest-payment`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('INTEREST_PAYMENT_TOTAL');
+  console.time('INTEREST_PAYMENT_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${loanId}/interest-payment`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('INTEREST_PAYMENT_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries();
+      console.timeEnd('INTEREST_PAYMENT_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to record interest payment');
+  } catch (err) {
+    try { console.timeEnd('INTEREST_PAYMENT_API'); } catch {}
+    try { console.timeEnd('INTEREST_PAYMENT_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to record interest payment');
 }
 
 export async function renewLoan(loanId: string, data: { renewalDate?: string; newLoanPeriod: number; remarks?: string }): Promise<any> {
-  const res = await fetch(`${API_BASE}/loans/${loanId}/renew`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('RENEW_TOTAL');
+  console.time('RENEW_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${loanId}/renew`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('RENEW_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries();
+      console.timeEnd('RENEW_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to renew loan');
+  } catch (err) {
+    try { console.timeEnd('RENEW_API'); } catch {}
+    try { console.timeEnd('RENEW_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to renew loan');
 }
 
 export async function addPartialPayment(loanId: string, data: { paymentDate?: string; paymentType: 'PRINCIPAL_PLUS_INTEREST' | 'PRINCIPAL_ONLY'; amount: number; remarks?: string }): Promise<any> {
-  const res = await fetch(`${API_BASE}/loans/${loanId}/partial-payment`, {
-    method: 'POST',
-    headers: getIdempotencyHeaders(),
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
-  if (json.success) {
-    invalidateLoanQueries();
-    return json.data;
+  console.time('PARTIAL_PAYMENT_TOTAL');
+  console.time('PARTIAL_PAYMENT_API');
+  try {
+    const res = await fetch(`${API_BASE}/loans/${loanId}/partial-payment`, {
+      method: 'POST',
+      headers: getIdempotencyHeaders(),
+      body: JSON.stringify(data)
+    });
+    console.timeEnd('PARTIAL_PAYMENT_API');
+    const json = await res.json();
+    if (json.success) {
+      invalidateLoanQueries();
+      console.timeEnd('PARTIAL_PAYMENT_TOTAL');
+      return json.data;
+    }
+    throw new Error(json.error || 'Failed to process partial payment');
+  } catch (err) {
+    try { console.timeEnd('PARTIAL_PAYMENT_API'); } catch {}
+    try { console.timeEnd('PARTIAL_PAYMENT_TOTAL'); } catch {}
+    throw err;
   }
-  throw new Error(json.error || 'Failed to process partial payment');
 }
 
 export async function fetchDueLoans(): Promise<{ overdueLoans: Loan[]; dueTodayLoans: Loan[]; overdueCount: number; dueTodayCount: number }> {
